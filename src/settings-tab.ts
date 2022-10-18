@@ -91,6 +91,20 @@ export default class ImageUploaderSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             });
+
+        new Setting(containerEl)
+            .setName("Craig Test Button")
+            .setDesc("Test")
+            .addText((text) => {
+                text
+                    .setPlaceholder("")
+                    .setValue(this.plugin.settings.test)
+                    .onChange(async (value) => {
+                        this.plugin.settings.test = value;
+                        await this.plugin.saveSettings();
+                    })
+            });
+
         new Setting(containerEl)
             .setName("Enable Resize")
             .setDesc("Resize the image before uploading")
