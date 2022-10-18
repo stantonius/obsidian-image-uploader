@@ -5,35 +5,37 @@ import objectPath from "object-path";
 import ImageUploaderSettingTab from "./settings-tab";
 import Compressor from "compressorjs";
 
-import { Buffer } from "buffer";
-
 import { PasteEventCopy } from "./custom-events";
 
 import { FilenameInput } from "./input";
 import { GCPStorageUploader } from "./google";
 
-function showNotice(message: string) {
-  new Notice(message);
-}
+import { homedir } from "os";
 
-interface ImageUploaderSettings {
+export interface ImageUploaderSettings {
   apiEndpoint: string;
   uploadHeader: string;
   uploadBody: string;
   imageUrlPath: string;
   maxWidth: number;
   enableResize: boolean;
-  test: string;
+  enableGCP: boolean;
+  gcp_bucket: string;
+  gcp_keyfile: string;
+  gcp_filePath: string;
 }
 
-const DEFAULT_SETTINGS: ImageUploaderSettings = {
+export const DEFAULT_SETTINGS: ImageUploaderSettings = {
   apiEndpoint: null,
   uploadHeader: null,
   uploadBody: '{"image": "$FILE"}',
   imageUrlPath: null,
   maxWidth: 4096,
   enableResize: false,
-  test: null,
+  enableGCP: true,
+  gcp_bucket: process.env.GCP_BUCKET,
+  gcp_keyfile: `${homedir()}/creds.json`,
+  gcp_filePath: "images",
 };
 
 interface pasteFunction {
@@ -51,6 +53,7 @@ export default class ImageUploader extends Plugin {
     replacement: string
   ): void {
     target = target.trim();
+    console.log(target);
     const lines = editor.getValue().split("\n");
     for (let i = 0; i < lines.length; i++) {
       const ch = lines[i].indexOf(target);
@@ -74,83 +77,104 @@ export default class ImageUploader extends Plugin {
       return;
     }
 
-    const imUploader = new GCPStorageUploader();
-
     let file = ev.clipboardData.files[0];
     const imageType = /image.*/;
     if (file.type.match(imageType)) {
       ev.preventDefault();
 
       //   // set the placeholder text
-      // const randomString = (Math.random() * 10086).toString(36).substring(0, 8);
-      // const pastePlaceText = `![uploading...](${randomString})\n`
-      // editor.replaceSelection(this.filename)
+      const randomString = (Math.random() * 10086).toString(36).substring(0, 8);
+      const pastePlaceText = `![uploading...](${randomString})\n`;
+      console.log(this.filename);
+      editor.replaceSelection(pastePlaceText);
 
       // // resize the image
-      // if (this.settings.enableResize) {
-      //   const maxWidth = this.settings.maxWidth
-      //   const compressedFile = await new Promise((resolve, reject) => {
-      //     new Compressor(file, {
-      //       maxWidth: maxWidth,
-      //       success: resolve,
-      //       error: reject,
-      //     })
-      //   })
-      //   file = compressedFile as File
-      // }
-
-      // upload the image
-      const formData = new FormData();
-      const uploadBody = JSON.parse(this.settings.uploadBody);
-
-      for (const key in uploadBody) {
-        if (uploadBody[key] == "$FILE") {
-          formData.append(key, file, file.name);
-        } else {
-          formData.append(key, uploadBody[key]);
-        }
+      if (this.settings.enableResize) {
+        const maxWidth = this.settings.maxWidth;
+        const compressedFile = await new Promise((resolve, reject) => {
+          new Compressor(file, {
+            maxWidth: maxWidth,
+            success: resolve,
+            error: reject,
+          });
+        });
+        file = compressedFile as File;
       }
 
-      await new FilenameInput(
-        this.app,
-        (result: string) => {
-          this.filename = result;
-          console.log(this.filename);
-        },
-        () => {
-          file = null;
+      if (!this.settings.enableGCP) {
+        // upload the image
+        const formData = new FormData();
+        const uploadBody = JSON.parse(this.settings.uploadBody);
+
+        for (const key in uploadBody) {
+          if (uploadBody[key] == "$FILE") {
+            formData.append(key, file, file.name);
+          } else {
+            formData.append(key, uploadBody[key]);
+          }
         }
-      ).open();
 
-      if (file) {
-        new Notice(`Uploading file...}`);
-        await imUploader.uploadFile(file, "images/" + this.filename);
+        axios
+          .post(this.settings.apiEndpoint, formData, {
+            headers: JSON.parse(this.settings.uploadHeader),
+          })
+          .then(
+            (res) => {
+              const url = objectPath.get(res.data, this.settings.imageUrlPath);
+              const imgMarkdownText = `![](${url})`;
+              this.replaceText(editor, pastePlaceText, imgMarkdownText);
+            },
+            (err) => {
+              new Notice(
+                "[Image Uploader] Upload unsuccessfully, fall back to default paste!",
+                5000
+              );
+              console.log(err);
+              this.replaceText(editor, pastePlaceText, "");
+              console.log(mkView.currentMode);
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore
+              mkView.currentMode.clipboardManager.handlePaste(
+                new PasteEventCopy(ev)
+              );
+            }
+          );
+      } else {
+        const imUploader = new GCPStorageUploader();
+
+        await new FilenameInput(
+          this.app,
+          // callback 1
+          (result: string) => {
+            this.filename = result;
+            console.log(this.filename);
+          },
+          // callback 2
+          () => {
+            file = null;
+          }
+        ).open();
+
+        if (file) {
+          new Notice(`Uploading file...}`);
+          await imUploader
+            .uploadFile(file, "images/" + this.filename)
+            .then((response) => {
+              new Notice(`File uploaded`);
+              // parse the string into a JSON object
+              const resp = JSON.parse(response);
+              const newUrl = `https://storage.googleapis.com/${resp.bucket}/${resp.name}`;
+              this.replaceText(
+                editor,
+                pastePlaceText,
+                `![${this.filename}](${newUrl})`
+              );
+            })
+            .catch((error) => {
+              new Notice(`Error uploading file: ${error}`);
+            });
+        }
       }
-
-      // await imUploader.uploadFromMemory(bufferFile, this.filename).then((result) => {
-      //   new Notice(`Upload result: ${result}`);
-      // }, (error) => {
-      //   console.log(error);
-      //   new Notice(`Upload error: ${error}`);
-      // });
-
-      // axios.post(this.settings.apiEndpoint, formData, {
-      //   "headers": JSON.parse(this.settings.uploadHeader)
-      // }).then(res => {
-      //   const url = objectPath.get(res.data, this.settings.imageUrlPath)
-      //   const imgMarkdownText = `![](${url})`
-      //   this.replaceText(editor, pastePlaceText, imgMarkdownText)
-      // }, err => {
-      //   new Notice('[Image Uploader] Upload unsuccessfully, fall back to default paste!', 5000)
-      //   console.log(err)
-      //   this.replaceText(editor, pastePlaceText, "");
-      //   console.log(mkView.currentMode)
-      //   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      //   // @ts-ignore
-      //   mkView.currentMode.clipboardManager.handlePaste(
-      //     new PasteEventCopy(ev)
-      //   );
-      // })
     }
   }
 

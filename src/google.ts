@@ -1,19 +1,19 @@
 // GCP needs to fetch config files locally to authenticate
 import { Notice, request } from "obsidian";
 import { google } from "googleapis";
-import { GCPSettings, GCP_DEFAULT_SETTINGS } from "./settings";
+import { ImageUploaderSettings, DEFAULT_SETTINGS } from "./main";
 
 export class GCPStorageUploader {
-  private gcpSettings: GCPSettings;
+  private settings: ImageUploaderSettings;
 
   constructor() {
-    this.gcpSettings = GCP_DEFAULT_SETTINGS;
+    this.settings = DEFAULT_SETTINGS;
   }
 
   async getAuthTokenauth(): Promise<string> {
     // TODO: Handle when file doesn't exist
     const auth = new google.auth.GoogleAuth({
-      keyFile: this.gcpSettings.keyFilename,
+      keyFile: this.settings.gcp_keyfile,
       scopes: "https://www.googleapis.com/auth/cloud-platform",
     });
     const client = await auth.getClient();
@@ -22,10 +22,10 @@ export class GCPStorageUploader {
     return token;
   }
 
-  async uploadFile(file: File, filename: string): Promise<void> {
+  async uploadFile(file: File, filename: string): Promise<string> {
     const token = await this.getAuthTokenauth();
-    const url = `https://storage.googleapis.com/upload/storage/v1/b/${this.gcpSettings.bucket}/o?uploadType=media&name=${filename}`;
-    await request({
+    const url = `https://storage.googleapis.com/upload/storage/v1/b/${this.settings.gcp_bucket}/o?uploadType=media&name=${filename}`;
+    const response = request({
       url: url,
       method: "POST",
       contentType: "image/png",
@@ -34,16 +34,15 @@ export class GCPStorageUploader {
       },
       // This was the key - needed to pass the file as a buffer
       body: await file.arrayBuffer(),
-    }).catch((err) => {
-      console.log(err.message);
     });
+    return response;
   }
 
   // TODO: check if file exists
   private async checkIfExists(filename: string): Promise<void> {
     // Currently this just returns all files in the bucket
     const token = await this.getAuthTokenauth();
-    const url = `https://storage.googleapis.com/storage/v1/b/${this.gcpSettings.bucket}/o`;
+    const url = `https://storage.googleapis.com/storage/v1/b/${this.settings.gcp_bucket}/o`;
     const res = request({
       url: url,
       method: "GET",
