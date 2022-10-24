@@ -160,7 +160,7 @@ export default class ImageUploader extends Plugin {
         if (file) {
           new Notice(`Uploading file...}`);
           await this.gcpUploader
-            .uploadFile(file, this.filename)
+            .uploadFile(file, this.settings.gcp_filePath + this.filename) // TODO: add some logic to add or remove a slash to ensure it is entered correctly
             .then((response) => {
               new Notice(`File uploaded`);
               // parse the string into a JSON object
