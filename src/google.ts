@@ -42,7 +42,7 @@ export class GCPStorageUploader {
       console.log(`The response is ${await response}`);
       return response;
     } catch (err) {
-      console.log(err.message);
+      console.log(`ARGHHH ${err}`);
     }
   }
 

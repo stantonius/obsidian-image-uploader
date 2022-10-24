@@ -174,6 +174,7 @@ export default class ImageUploader extends Plugin {
               );
             })
             .catch((error) => {
+              console.log(error);
               new Notice(`Error uploading file: ${error}`);
             });
         }
@@ -205,7 +206,6 @@ export default class ImageUploader extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
-    console.log(this.settings);
     await this.saveData(this.settings);
   }
 }
