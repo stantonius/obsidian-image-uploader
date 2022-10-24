@@ -205,6 +205,7 @@ export default class ImageUploader extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
+    console.log(this.settings);
     await this.saveData(this.settings);
   }
 }

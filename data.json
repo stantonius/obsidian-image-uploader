@@ -8,5 +8,5 @@
   "enableGCP": true,
   "gcp_bucket": "craigstanton-public-assets",
   "gcp_keyfile": "/Users/craig/creds.json",
-  "gcp_filePath": "test/"
+  "gcp_filePath": "images/"
 }
