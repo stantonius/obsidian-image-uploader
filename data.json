@@ -1,0 +1,12 @@
+{
+  "apiEndpoint": null,
+  "uploadHeader": null,
+  "uploadBody": "{\"image\": \"$FILE\"}",
+  "imageUrlPath": null,
+  "maxWidth": 4096,
+  "enableResize": false,
+  "enableGCP": true,
+  "gcp_bucket": "craigstanton-public-assets",
+  "gcp_keyfile": "/Users/craig/creds.json",
+  "gcp_filePath": "test/"
+}

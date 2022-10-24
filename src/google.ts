@@ -4,10 +4,10 @@ import { google } from "googleapis";
 import { ImageUploaderSettings, DEFAULT_SETTINGS } from "./main";
 
 export class GCPStorageUploader {
-  private settings: ImageUploaderSettings;
+  settings: ImageUploaderSettings;
 
-  constructor() {
-    this.settings = DEFAULT_SETTINGS;
+  constructor(settings: ImageUploaderSettings = DEFAULT_SETTINGS) {
+    this.settings = settings;
   }
 
   async getAuthTokenauth(): Promise<string> {
@@ -18,24 +18,32 @@ export class GCPStorageUploader {
     });
     const client = await auth.getClient();
     // TODO: Handle when no token (ie. unauth)
+    console.log(`key file is ${this.settings.gcp_keyfile}`);
     const token = (await client.getAccessToken()).token;
+    console.log(`The token is ${token}`);
     return token;
   }
 
   async uploadFile(file: File, filename: string): Promise<string> {
     const token = await this.getAuthTokenauth();
     const url = `https://storage.googleapis.com/upload/storage/v1/b/${this.settings.gcp_bucket}/o?uploadType=media&name=${filename}`;
-    const response = request({
-      url: url,
-      method: "POST",
-      contentType: "image/png",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      // This was the key - needed to pass the file as a buffer
-      body: await file.arrayBuffer(),
-    });
-    return response;
+    console.log(`The url is ${url}`);
+    try {
+      const response = request({
+        url: url,
+        method: "POST",
+        contentType: "image/png",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        // This was the key - needed to pass the file as a buffer
+        body: await file.arrayBuffer(),
+      });
+      console.log(`The response is ${await response}`);
+      return response;
+    } catch (err) {
+      console.log(err.message);
+    }
   }
 
   // TODO: check if file exists

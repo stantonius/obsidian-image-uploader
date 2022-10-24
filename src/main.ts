@@ -46,6 +46,7 @@ export default class ImageUploader extends Plugin {
   settings: ImageUploaderSettings;
   pasteFunction: pasteFunction;
   filename: string;
+  gcpUploader: GCPStorageUploader;
 
   private replaceText(
     editor: Editor,
@@ -140,7 +141,7 @@ export default class ImageUploader extends Plugin {
             }
           );
       } else {
-        const imUploader = new GCPStorageUploader();
+        this.gcpUploader = new GCPStorageUploader(this.settings);
 
         await new FilenameInput(
           this.app,
@@ -152,16 +153,18 @@ export default class ImageUploader extends Plugin {
           // callback 2
           () => {
             file = null;
+            console.log("cancel");
           }
         ).open();
 
         if (file) {
           new Notice(`Uploading file...}`);
-          await imUploader
-            .uploadFile(file, "images/" + this.filename)
+          await this.gcpUploader
+            .uploadFile(file, this.filename)
             .then((response) => {
               new Notice(`File uploaded`);
               // parse the string into a JSON object
+              console.log(response);
               const resp = JSON.parse(response);
               const newUrl = `https://storage.googleapis.com/${resp.bucket}/${resp.name}`;
               this.replaceText(
