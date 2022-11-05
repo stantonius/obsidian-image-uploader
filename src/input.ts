@@ -1,16 +1,20 @@
 import { App, Modal, Setting } from "obsidian";
+import { ImgFormat, ImageUploaderSettings } from "./main";
 
 export class FilenameInput extends Modal {
-    result: string;
+    result: ImgFormat;
+    settings: ImageUploaderSettings;
     isOpen: boolean;
-    onSubmit: (result: string) => void;
+    onSubmit: (result: object) => void;
     onExit: () => void;
 
-    constructor(app: App, onSubmit: (result: string) => void, onExit: () => void) {
+    constructor(app: App, settings: ImageUploaderSettings, onSubmit: (result: ImgFormat) => void, onExit: () => void) {
         super(app);
         this.isOpen = false;
+        this.settings = settings;
         this.onSubmit = onSubmit;
         this.onExit = onExit;
+        this.result = {} as ImgFormat;
     }
 
     private async waitClose(): Promise<void> {
@@ -32,13 +36,58 @@ export class FilenameInput extends Modal {
         const { contentEl } = this;
         
 
-        contentEl.createEl("h3", { text: "Enter filename" });
+        contentEl.createEl("h3", { text: "Add Image details" });
 
         new Setting(contentEl)
             .setName("Filename")
+            .setDesc("The filename of the image.")
             .addText((text) => {
                 text.onChange((value) => {
-                    this.result = value;
+                    this.result.filename = value;
+                });
+            });
+
+        new Setting(contentEl)
+            .setName("Img Height")
+            .setDesc("The height of the image.")
+            .addSlider((slider) => {
+                slider
+                    .setLimits(0, 1000, 10)
+                    .setValue(
+                        this.settings.img_height
+                    )
+                    .onChange((value) => {
+                        this.result.height = value;
+                        ;
+                    })
+                    .setDynamicTooltip()
+                    .showTooltip()
+                    ;
+            })
+
+        new Setting(contentEl)
+            .setName("Img Width")
+            .setDesc("The width of the image.")
+            .addSlider((slider) => {
+                slider
+                    .setLimits(0, 1000, 10)
+                    .setValue(
+                        this.settings.img_width
+                    )
+                    .onChange((value) => {
+                        this.result.width = value;
+                    })
+                    .setDynamicTooltip()
+                    .showTooltip()
+                    ;
+            })
+
+        new Setting(contentEl)
+            .setName("Alt Caption")
+            .setDesc("The alt caption of the image.")
+            .addText((text) => {
+                text.onChange((value) => {
+                    this.result.altcaption = value;
                 });
             });
 

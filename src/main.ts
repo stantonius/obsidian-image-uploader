@@ -10,7 +10,17 @@ import { PasteEventCopy } from "./custom-events";
 import { FilenameInput } from "./input";
 import { GCPStorageUploader } from "./google";
 
+import { htmlFormatting } from "./html";
+
 import { homedir } from "os";
+import { normalizePath } from "obsidian";
+
+export interface ImgFormat {
+  filename?: string;
+  width?: number;
+  height?: number;
+  altcaption?: string;
+}
 
 export interface ImageUploaderSettings {
   apiEndpoint: string;
@@ -23,6 +33,9 @@ export interface ImageUploaderSettings {
   gcp_bucket: string;
   gcp_keyfile: string;
   gcp_filePath: string;
+  img_height: number;
+  img_width: number;
+  img_altcaption: string;
 }
 
 export const DEFAULT_SETTINGS: ImageUploaderSettings = {
@@ -36,6 +49,9 @@ export const DEFAULT_SETTINGS: ImageUploaderSettings = {
   gcp_bucket: process.env.GCP_BUCKET,
   gcp_keyfile: `${homedir()}/creds.json`,
   gcp_filePath: "images",
+  img_height: 500,
+  img_width: 500,
+  img_altcaption: "Image",
 };
 
 interface pasteFunction {
@@ -45,7 +61,7 @@ interface pasteFunction {
 export default class ImageUploader extends Plugin {
   settings: ImageUploaderSettings;
   pasteFunction: pasteFunction;
-  filename: string;
+  imgformat: ImgFormat;
   gcpUploader: GCPStorageUploader;
 
   private replaceText(
@@ -86,7 +102,6 @@ export default class ImageUploader extends Plugin {
       //   // set the placeholder text
       const randomString = (Math.random() * 10086).toString(36).substring(0, 8);
       const pastePlaceText = `![uploading...](${randomString})\n`;
-      console.log(this.filename);
       editor.replaceSelection(pastePlaceText);
 
       // // resize the image
@@ -145,10 +160,10 @@ export default class ImageUploader extends Plugin {
 
         await new FilenameInput(
           this.app,
+          this.settings,
           // callback 1
-          (result: string) => {
-            this.filename = result;
-            console.log(this.filename);
+          (result: ImgFormat) => {
+            this.imgformat = result;
           },
           // callback 2
           () => {
@@ -160,17 +175,24 @@ export default class ImageUploader extends Plugin {
         if (file) {
           new Notice(`Uploading file...}`);
           await this.gcpUploader
-            .uploadFile(file, this.settings.gcp_filePath + this.filename) // TODO: add some logic to add or remove a slash to ensure it is entered correctly
+            .uploadFile(file, normalizePath(this.settings.gcp_filePath) + "/" + normalizePath(this.imgformat.filename))
             .then((response) => {
               new Notice(`File uploaded`);
               // parse the string into a JSON object
               console.log(response);
               const resp = JSON.parse(response);
               const newUrl = `https://storage.googleapis.com/${resp.bucket}/${resp.name}`;
+              const htmlText = htmlFormatting(
+                newUrl,
+                this.imgformat.height,
+                this.imgformat.width,
+                this.imgformat.altcaption
+              );
               this.replaceText(
                 editor,
                 pastePlaceText,
-                `![${this.filename}](${newUrl})`
+                // `![${this.filename}](${newUrl})`
+                htmlText.toString()
               );
             })
             .catch((error) => {

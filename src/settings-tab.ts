@@ -143,6 +143,34 @@ export default class ImageUploaderSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             });
         });
+
+      new Setting(containerEl)
+        .setName("Default Image Height")
+        .setDesc("The default height of the image in pixels.")
+        .addSlider((slider) => {
+          slider
+            .setLimits(0, 1000, 10)
+            .setValue(this.plugin.settings.img_height)
+            .onChange(async (value) => {
+              this.plugin.settings.img_height = value;
+              await this.plugin.saveSettings();
+            });
+        })
+    
+
+
+      new Setting(containerEl)
+        .setName("Default Image Width")
+        .setDesc("The default width of the image in pixels.")
+        .addSlider((slider) => {
+          slider
+            .setLimits(0, 1000, 10)
+            .setValue(this.plugin.settings.img_width)
+            .onChange(async (value) => {
+              this.plugin.settings.img_width = value;
+              await this.plugin.saveSettings();
+            });
+        })
     }
 
     new Setting(containerEl)
